@@ -1,5 +1,10 @@
 # gsplat
 
+> **Repository-specific guides:** see the Japanese [source installation guide](install-manual.md)
+> for a reproducible `uv` + CUDA setup. The [COLMAP example guide](docs/source/examples/colmap.rst)
+> documents optional dynamic-object masks that affect both SfM initialization points and training loss.
+> Maintainers should follow the [fork and upstream synchronization guide](docs/UPSTREAM_SYNC.md).
+
 [![Core Tests.](https://github.com/nerfstudio-project/gsplat/actions/workflows/core_tests.yml/badge.svg?branch=main)](https://github.com/nerfstudio-project/gsplat/actions/workflows/core_tests.yml)
 [![Docs](https://github.com/nerfstudio-project/gsplat/actions/workflows/doc.yml/badge.svg?branch=main)](https://github.com/nerfstudio-project/gsplat/actions/workflows/doc.yml)
 
