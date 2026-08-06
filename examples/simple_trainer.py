@@ -41,11 +41,14 @@ from datasets.traj import (
 from gsplat.losses import (
     depth_l1_loss,
     l1_loss,
+    masked_l1,
+    masked_ssim,
     opacity_reg_loss,
     scale_reg_loss,
     ssim_loss,
     total_variation_loss,
 )
+from mask_utils import apply_valid_mask, masked_psnr
 from torch import Tensor
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.tensorboard import SummaryWriter
@@ -106,6 +109,17 @@ class Config:
     camera_model: CameraModel = "pinhole"
     # Load EXIF exposure metadata from images (if available)
     load_exposure: bool = True
+    # External per-image masks for COLMAP. None disables masks; "auto" searches
+    # masks_<factor>, masks, dynamic_masks, then sam_masks below data_dir.
+    colmap_mask_dir: Optional[str] = None
+    # Non-zero pixels either identify excluded regions or valid regions.
+    colmap_mask_mode: Literal["exclude", "valid"] = "exclude"
+    colmap_mask_threshold: int = 0
+    # Missing masks fail by default so dynamic regions are not silently included.
+    colmap_mask_missing: Literal["error", "warn", "valid"] = "error"
+    # Filter COLMAP initialization points using their masked 2D observations.
+    colmap_mask_filter_sfm_points: bool = True
+    colmap_mask_min_valid_observations: int = 1
     # Backend to train on: "cuda" for standard multi-process training,
     # or "dgx" for torch-dgx single-process multi-GPU training.
     backend: str = "cuda"
@@ -311,6 +325,11 @@ def create_splats_with_optimizers(
     if init_type == "sfm" or init_type == "lidar":
         points = torch.from_numpy(parser.points).float()
         rgbs = torch.from_numpy(parser.points_rgb / 255.0).float()
+        if len(points) < 4:
+            raise ValueError(
+                f"{init_type} initialization requires at least 4 points, got "
+                f"{len(points)} after dataset filtering."
+            )
     elif init_type == "random":
         points = init_extent * scene_scale * (torch.rand((init_num_pts, 3)) * 2 - 1)
         rgbs = torch.rand((init_num_pts, 3))
@@ -447,6 +466,12 @@ class Runner:
                 normalize=cfg.normalize_world_space,
                 test_every=cfg.test_every,
                 load_exposure=cfg.load_exposure,
+                mask_dir=cfg.colmap_mask_dir,
+                mask_mode=cfg.colmap_mask_mode,
+                mask_threshold=cfg.colmap_mask_threshold,
+                mask_missing=cfg.colmap_mask_missing,
+                mask_filter_sfm_points=cfg.colmap_mask_filter_sfm_points,
+                mask_min_valid_observations=cfg.colmap_mask_min_valid_observations,
             )
             self.trainset = Dataset(
                 self.parser,
@@ -944,20 +969,18 @@ class Runner:
                 )
 
             # loss
-            if masks is not None:
-                # Exclude masked pixels (e.g. ego vehicle) from L1.
-                # For SSIM (patch-based), zero out both sides at masked locations
-                # so masked patches don't pull colors toward an arbitrary value.
-                l1loss = l1_loss(colors[masks], pixels[masks]).mean()
-                colors_ssim = colors * masks[..., None]
-                pixels_ssim = pixels * masks[..., None]
-            else:
+            if masks is None:
                 l1loss = l1_loss(colors, pixels).mean()
-                colors_ssim = colors
-                pixels_ssim = pixels
-            ssimloss = ssim_loss(
-                colors_ssim.permute(0, 3, 1, 2), pixels_ssim.permute(0, 3, 1, 2)
-            )
+                ssimloss = ssim_loss(
+                    colors.permute(0, 3, 1, 2), pixels.permute(0, 3, 1, 2)
+                )
+            else:
+                l1loss = masked_l1(colors, pixels, masks[..., None])
+                ssimloss = masked_ssim(
+                    colors.permute(0, 3, 1, 2),
+                    pixels.permute(0, 3, 1, 2),
+                    masks[:, None],
+                )
             loss = torch.lerp(l1loss, ssimloss, cfg.ssim_lambda)
             if cfg.depth_loss:
                 # query depths from depth map
@@ -1252,23 +1275,35 @@ class Runner:
                     canvas,
                 )
 
-                pixels_p = pixels.permute(0, 3, 1, 2)  # [1, 3, H, W]
-                colors_p = colors.permute(0, 3, 1, 2)  # [1, 3, H, W]
-                metrics["psnr"].append(self.psnr(colors_p, pixels_p))
+                if masks is not None and not torch.any(masks):
+                    continue
+                metric_pixels = apply_valid_mask(pixels, masks)
+                metric_colors = apply_valid_mask(colors, masks)
+                pixels_p = metric_pixels.permute(0, 3, 1, 2)  # [1, 3, H, W]
+                colors_p = metric_colors.permute(0, 3, 1, 2)  # [1, 3, H, W]
+                metrics["psnr"].append(masked_psnr(colors, pixels, masks))
                 metrics["ssim"].append(self.ssim(colors_p, pixels_p))
                 metrics["lpips"].append(self.lpips(colors_p, pixels_p))
                 # Compute color-corrected metrics for fair comparison across methods
                 if cfg.use_color_correction_metric:
                     if cfg.color_correct_method == "affine":
-                        cc_colors = color_correct_affine(colors, pixels)
+                        cc_colors = color_correct_affine(metric_colors, metric_pixels)
                     else:
-                        cc_colors = color_correct_quadratic(colors, pixels)
+                        cc_colors = color_correct_quadratic(
+                            metric_colors, metric_pixels
+                        )
                     cc_colors_p = cc_colors.permute(0, 3, 1, 2)  # [1, 3, H, W]
-                    metrics["cc_psnr"].append(self.psnr(cc_colors_p, pixels_p))
+                    metrics["cc_psnr"].append(
+                        masked_psnr(cc_colors, metric_pixels, masks)
+                    )
                     metrics["cc_ssim"].append(self.ssim(cc_colors_p, pixels_p))
                     metrics["cc_lpips"].append(self.lpips(cc_colors_p, pixels_p))
 
         if world_rank == 0:
+            if not metrics["psnr"]:
+                raise ValueError(
+                    "No validation image contains any valid masked pixels."
+                )
             ellipse_time /= len(valloader)
 
             stats = {k: torch.stack(v).mean().item() for k, v in metrics.items()}

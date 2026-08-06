@@ -17,7 +17,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import cv2
 import imageio.v2 as imageio
@@ -29,6 +29,12 @@ from tqdm import tqdm
 from typing_extensions import assert_never
 
 from exif import compute_exposure_from_exif
+from .masks import (
+    ImageMaskProvider,
+    keep_sfm_point,
+    resize_valid_mask,
+    sample_valid_mask,
+)
 from .normalize import (
     align_principal_axes,
     similarity_from_cameras,
@@ -127,12 +133,20 @@ class Parser:
         normalize: bool = False,
         test_every: int = 8,
         load_exposure: bool = False,
+        mask_dir: Optional[str] = None,
+        mask_mode: Literal["exclude", "valid"] = "exclude",
+        mask_threshold: int = 0,
+        mask_missing: Literal["error", "warn", "valid"] = "error",
+        mask_filter_sfm_points: bool = True,
+        mask_min_valid_observations: int = 1,
     ):
         self.data_dir = data_dir
         self.factor = factor
         self.normalize = normalize
         self.test_every = test_every
         self.load_exposure = load_exposure
+        if mask_min_valid_observations < 1:
+            raise ValueError("mask_min_valid_observations must be at least 1")
 
         colmap_dir = os.path.join(data_dir, "sparse/0/")
         if not os.path.exists(colmap_dir):
@@ -237,11 +251,63 @@ class Parser:
             )
             image_files = sorted(_get_rel_paths(image_dir))
         colmap_to_image = dict(zip(colmap_files, image_files))
-        image_paths = [os.path.join(image_dir, colmap_to_image[f]) for f in image_names]
+        image_rel_paths = [colmap_to_image[f] for f in image_names]
+        image_paths = [os.path.join(image_dir, path) for path in image_rel_paths]
+        mask_provider = ImageMaskProvider(
+            data_dir=data_dir,
+            factor=factor,
+            image_names=image_names,
+            image_rel_paths=image_rel_paths,
+            mask_dir=mask_dir,
+            mode=mask_mode,
+            threshold=mask_threshold,
+            missing=mask_missing,
+        )
+        if mask_provider.enabled:
+            print(f"[Parser] Using external masks from {mask_provider.directory}.")
 
         # 3D points and {image_name -> [point_idx]}
         points3D = _as_dict(reconstruction.points3D)
         point3D_ids = sorted(points3D)
+        if mask_provider.enabled and mask_filter_sfm_points:
+            image_name_to_index = {name: idx for idx, name in enumerate(image_names)}
+            kept_point3D_ids = []
+            for point3D_id in point3D_ids:
+                valid_observations = 0
+                masked_observations = 0
+                for track_element in points3D[point3D_id].track.elements:
+                    image_id = int(track_element.image_id)
+                    if image_id not in imdata:
+                        continue
+                    image = imdata[image_id]
+                    image_index = image_name_to_index[image.name]
+                    valid_mask = mask_provider.load(image_index)
+                    if valid_mask is None:
+                        continue
+                    point2D = image.points2D[int(track_element.point2D_idx)]
+                    camera = cameras[int(image.camera_id)]
+                    masked_observations += 1
+                    valid_observations += int(
+                        sample_valid_mask(
+                            valid_mask,
+                            point2D.xy,
+                            (int(camera.width), int(camera.height)),
+                        )
+                    )
+                if keep_sfm_point(
+                    valid_observations,
+                    masked_observations,
+                    mask_min_valid_observations,
+                ):
+                    kept_point3D_ids.append(point3D_id)
+            removed = len(point3D_ids) - len(kept_point3D_ids)
+            point3D_ids = kept_point3D_ids
+            print(
+                f"[Parser] Removed {removed} SfM points observed only in excluded "
+                f"regions; kept {len(point3D_ids)}."
+            )
+            if not point3D_ids:
+                raise ValueError("Mask filtering removed every COLMAP SfM point.")
         points = np.array(
             [points3D[point3D_id].xyz for point3D_id in point3D_ids],
             dtype=np.float32,
@@ -311,6 +377,7 @@ class Parser:
         self.params_dict = params_dict  # Dict of camera_id -> params
         self.imsize_dict = imsize_dict  # Dict of camera_id -> (width, height)
         self.mask_dict = mask_dict  # Dict of camera_id -> mask
+        self.mask_provider = mask_provider
         self.points = points  # np.ndarray, (num_points, 3)
         self.points_err = points_err  # np.ndarray, (num_points,)
         self.points_rgb = points_rgb  # np.ndarray, (num_points, 3)
@@ -470,7 +537,10 @@ class Dataset:
         K = self.parser.Ks_dict[camera_id].copy()  # undistorted K
         params = self.parser.params_dict[camera_id]
         camtoworlds = self.parser.camtoworlds[index]
-        mask = self.parser.mask_dict[camera_id]
+        valid_mask = self.parser.mask_dict[camera_id]
+        external_mask = self.parser.mask_provider.load(index)
+        if external_mask is not None:
+            external_mask = resize_valid_mask(external_mask, image.shape[:2])
 
         if len(params) > 0:
             # Images are distorted. Undistort them.
@@ -479,8 +549,24 @@ class Dataset:
                 self.parser.mapy_dict[camera_id],
             )
             image = cv2.remap(image, mapx, mapy, cv2.INTER_LINEAR)
+            if external_mask is not None:
+                external_mask = cv2.remap(
+                    external_mask.astype(np.uint8),
+                    mapx,
+                    mapy,
+                    cv2.INTER_NEAREST,
+                ).astype(bool)
             x, y, w, h = self.parser.roi_undist_dict[camera_id]
             image = image[y : y + h, x : x + w]
+            if external_mask is not None:
+                external_mask = external_mask[y : y + h, x : x + w]
+
+        if external_mask is not None:
+            valid_mask = (
+                external_mask
+                if valid_mask is None
+                else np.logical_and(valid_mask, external_mask)
+            )
 
         if self.patch_size is not None:
             # Random crop.
@@ -488,6 +574,10 @@ class Dataset:
             x = np.random.randint(0, max(w - self.patch_size, 1))
             y = np.random.randint(0, max(h - self.patch_size, 1))
             image = image[y : y + self.patch_size, x : x + self.patch_size]
+            if valid_mask is not None:
+                valid_mask = valid_mask[
+                    y : y + self.patch_size, x : x + self.patch_size
+                ]
             K[0, 2] -= x
             K[1, 2] -= y
 
@@ -500,8 +590,8 @@ class Dataset:
                 index
             ],  # 0-based contiguous camera index
         }
-        if mask is not None:
-            data["mask"] = torch.from_numpy(mask).bool()
+        if valid_mask is not None:
+            data["mask"] = torch.from_numpy(valid_mask).bool()
 
         # Add exposure if available for this image
         exposure = self.parser.exposure_values[index]
@@ -512,7 +602,9 @@ class Dataset:
             # projected points to image plane to get depths
             worldtocams = np.linalg.inv(camtoworlds)
             image_name = self.parser.image_names[index]
-            point_indices = self.parser.point_indices[image_name]
+            point_indices = self.parser.point_indices.get(
+                image_name, np.empty(0, dtype=np.int32)
+            )
             points_world = self.parser.points[point_indices]
             points_cam = (worldtocams[:3, :3] @ points_world.T + worldtocams[:3, 3:4]).T
             points_proj = (K @ points_cam.T).T
@@ -526,6 +618,11 @@ class Dataset:
                 & (points[:, 1] < image.shape[0])
                 & (depths > 0)
             )
+            if valid_mask is not None:
+                valid_indices = np.flatnonzero(selector)
+                point_x = points[valid_indices, 0].astype(np.int64)
+                point_y = points[valid_indices, 1].astype(np.int64)
+                selector[valid_indices] &= valid_mask[point_y, point_x]
             points = points[selector]
             depths = depths[selector]
             data["points"] = torch.from_numpy(points).float()
