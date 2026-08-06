@@ -116,6 +116,7 @@ venv.bak/
 
 # Direnv config.
 .envrc
+env.cuda.sh
 
 # line_profiler
 *.lprof
