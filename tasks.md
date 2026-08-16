@@ -26,7 +26,10 @@
 
 - [ ] **A5. 実データGPU環境でmask学習を検証**
   - Refs: REQ-MASK-01, REQ-MASK-02, REQ-MASK-04, REQ-NFR-02, DES-REL-01
-  - [ ] RTX 4070参照環境をクリーンな `.venv` に構築し、OS、GPU区分、VRAM、driver、CUDA、Python、PyTorch、torchvision、pycolmapの完全なversionを記録する
+  - 現在のblocker: 検証用COLMAP datasetと全画像分のexclude maskが未準備である
+  - 確認済み環境: Ubuntu 24.04.4 LTS、desktop RTX 4070 12,282 MiB、driver 595.84、CUDA toolkit 12.8.93、Python 3.11.14、PyTorch 2.9.1+cu128、torchvision 0.24.1+cu128、pycolmap 4.1.1
+  - 確認済み結果: mask・loss回帰233件とRTX 4070上のCUDA rasterization smoke test 1件が成功する
+  - [x] RTX 4070参照環境をクリーンな `.venv` に構築し、OS、GPU区分、VRAM、driver、CUDA、Python、PyTorch、torchvision、pycolmapの完全なversionを記録する
   - [ ] 40〜60枚を目安に、動的対象を3か所以上へ移動して各位置を5視点以上から撮影したCOLMAP datasetと全画像分のexclude maskを用意し、dataset manifest hashを記録する
   - [ ] 同一dataset、split、seed、30,000 steps、`data_factor=4`、default strategyの条件でmaskなし・maskありを学習する
   - [ ] mask filtering後にも初期点が残り、100点以上または元点群の1%以上が除外されることを確認する
