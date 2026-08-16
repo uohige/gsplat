@@ -34,6 +34,13 @@
   - [x] `custom/main` をdefault branchとして保護する
   - [x] 本家同期と通常機能開発のPull Request経路を定義する
 
+- [x] **A4. 保守運用文書を正本へ統合**
+  - Refs: REQ-INSTALL-01, REQ-SYNC-01, DES-INSTALL-01, DES-SYNC-01
+  - [x] `docs/operations.md` にfork運用、本家同期、release固定、障害時確認を統合する
+  - [x] `docs/UPSTREAM_SYNC.md` との重複を解消し、参照元を正本へ向ける
+  - [x] `install-manual.md` のfork URL placeholderを実際のrepositoryと `custom/main` 利用方法へ置換する
+  - [x] 文書内の導入・同期commandが現在のremoteとbranch protectionに一致することを確認する
+
 ## 優先度B: 完了済みのパフォーマンス・品質・拡張性の強化
 
 - [x] **B1. Downstream必須CIを構成**

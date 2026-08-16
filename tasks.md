@@ -18,18 +18,11 @@
 - `C`: 3
 
 ## 推奨実装順序
-- A4 -> C2 -> A5 -> B2
+- C2 -> A5 -> B2
 
 ## 優先度S: クリティカルなバグ修正や機能追加
 
 ## 優先度A: アーキテクチャ刷新や重要な機能改善
-
-- [ ] **A4. 保守運用文書を正本へ統合**
-  - Refs: REQ-INSTALL-01, REQ-SYNC-01, DES-INSTALL-01, DES-SYNC-01
-  - [ ] `docs/operations.md` にfork運用、本家同期、release固定、障害時確認を統合する
-  - [ ] `docs/UPSTREAM_SYNC.md` との重複を解消し、参照元を正本へ向ける
-  - [ ] `install-manual.md` のfork URL placeholderを実際のrepositoryと `custom/main` 利用方法へ置換する
-  - [ ] 文書内の導入・同期commandが現在のremoteとbranch protectionに一致することを確認する
 
 - [ ] **A5. 実データGPU環境でmask学習を検証**
   - Refs: REQ-MASK-01, REQ-MASK-02, REQ-MASK-04, REQ-NFR-02, DES-REL-01

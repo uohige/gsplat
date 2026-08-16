@@ -14,7 +14,7 @@
 
 `examples/` を活用したいなら、`git clone --recursive` でリポジトリ全体を持ってきて、その clone 済みディレクトリの中に `uv` の仮想環境を作るのが自然です。
 
-また、`gsplat` の `main` は source install になります。Python の依存は `.venv` に閉じ込められますが、CUDA driver やコンパイラなどのビルド要件までは完全には仮想環境だけで完結しません。ここは Python 環境とシステム要件を分けて考えてください。
+また、このリポジトリは source install になります。Python の依存は `.venv` に閉じ込められますが、CUDA driver やコンパイラなどのビルド要件までは完全には仮想環境だけで完結しません。ここは Python 環境とシステム要件を分けて考えてください。
 
 ## 2. 推奨方針
 
@@ -23,7 +23,8 @@
 - PyTorch を先に入れる
 - その後、clone した `gsplat` を同じ `.venv` に source install する
 - `examples/requirements.txt` も同じ `.venv` に入れる
-- 再現性が必要なら `main` の commit SHA を固定する
+- 再現性が必要なら `custom/main` のcommit SHAまたは検証済みの
+  `mask-vMAJOR.MINOR.PATCH` tagを固定する
 
 Python `3.11` を勧める理由は、PyTorch と CUDA 拡張の組み合わせで比較的無難だからです。これは厳密な公式固定値ではなく、実務上の保守的な推奨です。
 
@@ -31,12 +32,14 @@ Python `3.11` を勧める理由は、PyTorch と CUDA 拡張の組み合わせ�
 
 以下では、保存先を `~/projects/gsplat` とします。
 
-`<このforkのURL>` は、本家更新とマスク機能を統合した、このリポジトリの実際のGit URLへ置き換えてください。本家URLを直接cloneした場合、本リポジトリ固有のマスク機能は含まれません。
+本リポジトリ固有のマスク機能を利用するため、`uohige/gsplat` の
+`custom/main` をcloneします。本家URLや `main` を直接cloneした場合、
+downstream固有のマスク機能は含まれません。
 
 ```bash
 mkdir -p ~/projects
 cd ~/projects
-git clone --recursive <このforkのURL>
+git clone --recursive --branch custom/main git@github.com:uohige/gsplat.git
 cd gsplat
 ```
 
@@ -44,7 +47,8 @@ cd gsplat
 
 ```bash
 cd ~/projects/gsplat
-git pull --rebase --recurse-submodules
+git switch custom/main
+git pull --ff-only origin custom/main
 git submodule update --init --recursive
 ```
 
@@ -91,7 +95,7 @@ uv run python --version
 
 ## 7. project ごとの CUDA 環境変数を用意する
 
-`gsplat` の `main` は source install なので、`torch.utils.cpp_extension` が CUDA toolkit を見つけられる状態にしてからインストールする必要があります。
+このリポジトリは source install なので、`torch.utils.cpp_extension` が CUDA toolkit を見つけられる状態にしてからインストールする必要があります。
 
 ここでは、グローバルな `~/.bashrc` に固定値を書くのではなく、この project 専用の設定ファイルをリポジトリ直下に置く方法を使います。
 
@@ -173,17 +177,26 @@ python -c "import torch; print(torch.__version__); print(torch.version.cuda)"
 uv run python -c "import torch; print(torch.__version__); print(torch.version.cuda)"
 ```
 
-## 10. `main` を固定したい場合
+## 10. 利用版を固定したい場合
 
-常に最新の開発ブランチを追う場合でも、動作確認に使ったSHAは記録してください。
+常に最新の `custom/main` を追う場合でも、動作確認に使ったSHAは記録してください。
 
-「今 clone した時点の `main` を固定したい」場合は、clone 後に現在の commit を確認しておきます。
+clone後に現在のbranchとcommitを確認します。
 
 ```bash
+git branch --show-current
 git rev-parse HEAD
 ```
 
-この SHA を控えておけば、将来同じ状態に戻せます。再現性を重視するなら、この SHA をメモしておくべきです。
+branchが `custom/main` であることを確認し、SHAを記録します。公開済みの検証済み
+releaseを使う場合は、対象の `mask-vMAJOR.MINOR.PATCH` tagをcheckoutします。
+
+```bash
+git fetch origin --tags
+git switch --detach mask-vMAJOR.MINOR.PATCH
+```
+
+tagから変更を始める場合は、detached HEADのままcommitせず作業branchを作成します。
 
 ## 11. clone した repo から `gsplat` をインストールする
 
@@ -272,7 +285,8 @@ uv run python examples/simple_trainer.py
 cd ~/projects/gsplat
 source .venv/bin/activate
 source ./env.cuda.sh
-git pull --rebase --recurse-submodules
+git switch custom/main
+git pull --ff-only origin custom/main
 git submodule update --init --recursive
 uv pip install --no-build-isolation -e .
 uv pip install -r examples/requirements.txt --no-build-isolation
@@ -285,9 +299,9 @@ uv pip install -r examples/requirements.txt --no-build-isolation
 - Python 依存は `~/projects/gsplat/.venv` に閉じる
 - 別プロジェクトの `.venv` は使い回さない
 - `sudo pip install` は使わない
-- `uv add` で別アプリ用の `pyproject.toml` に混ぜず、upstream repo 用 `.venv` として扱う
+- `uv add` で別アプリ用の `pyproject.toml` に混ぜず、このrepository専用の `.venv` として扱う
 - `CUDA_HOME` は project ごとの `env.cuda.sh` で切り替え、`~/.bashrc` に固定しない
-- `main` を業務用途で固定したいなら commit SHA を保存する
+- `custom/main` を業務用途で固定したいならcommit SHAまたは検証済みtagを保存する
 
 ## 17. うまくいかないときの見直し順
 
@@ -307,4 +321,7 @@ uv pip install -r examples/requirements.txt --no-build-isolation
 - examples requirements: https://raw.githubusercontent.com/nerfstudio-project/gsplat/main/examples/requirements.txt
 - Windows source install guide: https://github.com/nerfstudio-project/gsplat/blob/main/docs/INSTALL_WIN.md
 
-この手順は、examples を使う前提では `pip install git+...` よりも扱いやすく、Python 依存を `.venv` に閉じ込めたまま upstream の `main` を追いやすい構成です。
+forkの同期やrelease作成を行う保守者は、正本の
+[`docs/operations.md`](docs/operations.md) も参照してください。
+
+この手順は、examples を使う前提では `pip install git+...` よりも扱いやすく、Python 依存を `.venv` に閉じ込めたまま `custom/main` を追いやすい構成です。
