@@ -125,6 +125,41 @@ branch名は変更種別に応じて `feature/`、`fix/`、`docs/`、`chore/` �
 実データと対応GPU環境で検証済みの `custom/main` commitだけをrelease対象とする。
 tagは `mask-vMAJOR.MINOR.PATCH` 形式のannotated tagとし、公開済みtagを書き換えない。
 
+初回の参照環境は次の組み合わせとする。
+
+- Ubuntu 24.04 LTS
+- NVIDIA GeForce RTX 4070
+- CUDA toolkit 12.8
+- Python 3.11
+- PyTorch 2.9.1+cu128
+- torchvision 0.24.1
+
+GPUのdesktopまたはlaptop区分、VRAM容量、NVIDIA driver、Python patch、pycolmapは
+検証時に使用した完全なversionを記録する。この参照環境は検証済みの1構成を示し、
+他のGPUや依存versionを一括して保証するsupport matrixとして扱わない。
+
+検証用datasetは、40〜60枚を目安とする特徴点の十分な静的シーンを撮影する。
+動的対象を3か所以上へ移動し、各位置を5視点以上から撮影する。全画像へexclude maskを
+対応付け、missing policyは `error` とする。dataset名、画像数、解像度、mask設定、
+画像一覧のmanifest hashを記録し、dataset自体はrepositoryへcommitしない。
+
+maskなし・maskありの比較では、dataset、split、seed、30,000 steps、
+`data_factor=4`、default strategyを共通とし、単一GPU、viewer無効、PLY出力無効で
+実行する。RTX 4070でOOMになる場合はpacked modeを両runへ適用し、その変更を記録する。
+両runのcheckpointは同一valid mask領域で評価する。
+
+releaseの合格条件は次のとおりとする。
+
+- maskなし・maskありが例外やNaNなしで30,000 stepsを完了する
+- mask filtering後にも初期SfM点が残る
+- 除外された初期SfM点が100点以上、または元点群の1%以上である
+- maskありのvalid領域PSNRがmaskなしより0.5 dBを超えて低下しない
+- 事前選定した3 view以上のうち1 view以上で動的対象由来のghostが低減する
+- 静的背景に新しい大規模な欠損、ぼけ、mask境界の破綻がない
+
+SSIM、LPIPS、最終Gaussian数、所要時間、最大GPU memoryは比較結果へ記録するが、
+初回releaseの合否閾値には使用しない。
+
 ```bash
 git switch custom/main
 git pull --ff-only origin custom/main
@@ -138,12 +173,23 @@ GitHub Releaseには次を記録する。
 - release対象のdownstream commit SHA
 - 対応するupstream commit SHA
 - OS、GPU、NVIDIA driver、CUDA toolkit
-- Python、PyTorch、pycolmapのversion
+- GPUのdesktopまたはlaptop区分とVRAM容量
+- Python、PyTorch、torchvision、pycolmapのversion
+- dataset名、画像数、解像度、manifest hash
 - maskのmode、threshold、missing policy、SfM点filter設定
-- maskなし・maskありの検証条件と結果
+- maskなし・maskありの共通条件、初期SfM点、PSNR、SSIM、LPIPS、最終Gaussian数、所要時間、最大GPU memory
+- 事前選定viewにおけるghost低減と静的背景の目視結果
 
 必須情報または実データ検証が不足する状態を検証済みreleaseとして扱わない。
 dataset、checkpoint、PLY、render結果はGit objectへ含めない。
+
+versionは変更内容から次のように決定する。
+
+- `MAJOR`: mask規約、dataset形式、CLIの意味、既定の安全動作に後方互換性のない変更
+- `MINOR`: 後方互換なmask機能または対応環境の追加
+- `PATCH`: 後方互換な修正、本家同期、依存・文書・CI更新
+
+同一commitと同一検証内容を同じ環境で再確認しただけの場合は新versionを発行しない。
 
 ## 7. 障害時の確認
 

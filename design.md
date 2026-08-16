@@ -162,15 +162,22 @@
 ### DES-REL-01: 検証済み版の識別
 - **Refs**: REQ-SYNC-01, REQ-NFR-02
 - **責務**:
-  - annotated tagとGitHub Releaseが、downstream利用版と対応upstream・GPU検証環境の組を識別する。
+  - annotated tagとGitHub Releaseが、downstream利用版、対応upstream、GPU検証環境、実データ判定結果の組を識別する。
 - **入力**:
   - `custom/main` の検証対象commit、upstream commit SHA、Python・PyTorch・CUDA・driver・pycolmap、mask設定、検証結果。
+  - 初回参照環境はUbuntu 24.04 LTS、NVIDIA GeForce RTX 4070、CUDA toolkit 12.8、Python 3.11、PyTorch 2.9.1+cu128、torchvision 0.24.1とする。GPUのdesktopまたはlaptop区分、VRAM容量、driver、Python patch、pycolmapの完全なversionは検証時の実値を使用する。
+  - 実データは40〜60枚を目安とするCOLMAP captureとし、動的対象を3か所以上へ移動し、各位置を5視点以上から撮影する。全画像にexclude maskを対応付け、mask欠損を許可しない。
+  - maskなし・maskありの比較は、同一dataset、split、seed、30,000 steps、`data_factor=4`、default strategy、単一GPU、viewer無効、PLY出力無効で実行する。OOM時にpacked modeへ変更する場合は両runへ同じ設定を適用する。
 - **出力**:
-  - `mask-vMAJOR.MINOR.PATCH` tagと環境情報を含むrelease metadata。
+  - `mask-vMAJOR.MINOR.PATCH` tagと、環境、dataset識別情報、比較条件、定量結果、目視結果を含むrelease metadata。
 - **失敗時**:
   - 必須情報または実データ検証が不足する状態を、検証済みreleaseとして扱わない。
+  - maskなし・maskありのいずれかが30,000 stepsを完了しない場合、初期SfM点が全除外される場合、除外点が100点未満かつ元点群の1%未満の場合、同一valid領域でのmaskありPSNRがmaskなしより0.5 dBを超えて低下する場合は不合格とする。
+  - 事前選定した3 view以上の比較で動的対象由来のghost低減を1 view以上で確認できない場合、または静的背景に新しい大規模な欠損、ぼけ、境界破綻がある場合は不合格とする。
 - **不変条件**:
   - tagは書き換えず、異なる検証内容には新しいversionを割り当てる。
+  - mask規約、dataset形式、CLIの意味、既定の安全動作に後方互換性のない変更はMAJOR、後方互換な機能または対応環境の追加はMINOR、後方互換な修正、本家同期、依存・文書・CI更新はPATCHを更新する。同一内容の再検証だけでは新versionを発行しない。
+  - PSNRは両checkpointを同一valid領域で評価した値を主判定とし、SSIM、LPIPS、最終Gaussian数、所要時間、最大GPU memoryは記録値として扱う。
   - 大容量のdata、checkpoint、PLY、render結果をGit objectへ含めない。
 
 ## 6. エラーハンドリングとリソース管理

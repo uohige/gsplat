@@ -56,3 +56,10 @@
   - [x] mask機能と導入How-Toをrepositoryの提供範囲として定義する
   - [x] 本家codeへの変更を抑え、example境界で統合する方針を定義する
   - [x] fork内の本家mirrorとdownstream利用版を分離する方針を定義する
+
+- [x] **C2. 検証済みreleaseの対応環境と判定基準を合意**
+  - Refs: REQ-INSTALL-01, REQ-SYNC-01, REQ-NFR-02, DES-REL-01
+  - [x] Ubuntu 24.04 LTS、RTX 4070、CUDA 12.8、Python 3.11、PyTorch 2.9.1+cu128を初回参照環境として定義する
+  - [x] 初期SfM点の除外、同一valid領域のPSNR、事前選定viewのghost低減と静的背景の健全性を合格条件として定義する
+  - [x] `mask-vMAJOR.MINOR.PATCH` のversion更新基準を定義する
+  - [x] 小規模な自前COLMAP captureの準備を含むA5の受け入れ条件を確定する

@@ -18,7 +18,7 @@
 - `C`: 3
 
 ## 推奨実装順序
-- C2 -> A5 -> B2
+- A5 -> B2
 
 ## 優先度S: クリティカルなバグ修正や機能追加
 
@@ -26,10 +26,14 @@
 
 - [ ] **A5. 実データGPU環境でmask学習を検証**
   - Refs: REQ-MASK-01, REQ-MASK-02, REQ-MASK-04, REQ-NFR-02, DES-REL-01
-  - [ ] C2で合意した環境と静的シーンdatasetを用意する
-  - [ ] maskなし・maskありで初期点数、loss、評価指標、出力sceneを比較する
-  - [ ] 動的領域に由来するGaussianの抑制を定性的・定量的に確認する
-  - [ ] commit SHA、upstream SHA、依存環境、mask設定、検証結果をrelease候補へ記録する
+  - [ ] RTX 4070参照環境をクリーンな `.venv` に構築し、OS、GPU区分、VRAM、driver、CUDA、Python、PyTorch、torchvision、pycolmapの完全なversionを記録する
+  - [ ] 40〜60枚を目安に、動的対象を3か所以上へ移動して各位置を5視点以上から撮影したCOLMAP datasetと全画像分のexclude maskを用意し、dataset manifest hashを記録する
+  - [ ] 同一dataset、split、seed、30,000 steps、`data_factor=4`、default strategyの条件でmaskなし・maskありを学習する
+  - [ ] mask filtering後にも初期点が残り、100点以上または元点群の1%以上が除外されることを確認する
+  - [ ] 両checkpointを同一valid領域で評価し、maskありPSNRの低下がmaskなし比0.5 dB以内であることを確認する
+  - [ ] 事前選定した3 view以上を比較し、1 view以上でghostが低減し、静的背景に新しい大規模な欠損、ぼけ、境界破綻がないことを確認する
+  - [ ] SSIM、LPIPS、最終Gaussian数、所要時間、最大GPU memoryを参考値として記録する
+  - [ ] downstream SHA、upstream SHA、環境、dataset識別情報、mask設定、定量結果、目視結果をrelease候補へ記録する
 
 ## 優先度B: パフォーマンス・品質・拡張性の強化
 
@@ -40,10 +44,3 @@
   - [ ] downstream固有分岐90%以上を満たさない場合にCIで検知する
 
 ## 優先度C: 議論・設計タスク
-
-- [ ] **C2. 検証済みreleaseの対応環境と判定基準を合意**
-  - Refs: REQ-INSTALL-01, REQ-SYNC-01, REQ-NFR-02, DES-REL-01
-  - [ ] 対応対象とするOS、GPU、driver、CUDA、Python、PyTorch、pycolmapの組み合わせを定義する
-  - [ ] maskの効果を合格とする定量指標と目視確認項目を定義する
-  - [ ] `mask-vMAJOR.MINOR.PATCH` のversion更新基準を定義する
-  - [ ] A5へ昇格可能な受け入れ条件を確定する
