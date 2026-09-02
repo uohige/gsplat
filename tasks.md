@@ -13,16 +13,24 @@
 
 ## 次回採番メモ
 - `S`: 1
-- `A`: 7
+- `A`: 8
 - `B`: 3
 - `C`: 4
 
 ## 推奨実装順序
-- A5 -> B2
+- A7 -> A5 -> B2
 
 ## 優先度S: クリティカルなバグ修正や機能追加
 
 ## 優先度A: アーキテクチャ刷新や重要な機能改善
+
+- [ ] **A7. 本家v1.6.0をdownstream利用版へ同期**
+  - Refs: REQ-SYNC-01, REQ-NFR-01, REQ-NFR-02, DES-SYNC-01, DES-CI-01
+  - [ ] `main` を最新の `upstream/main` へfast-forwardし、本家mirrorを更新する
+  - [ ] 本家履歴を保持するmerge commitで更新を同期branchへ取り込み、競合を解消する
+  - [ ] `.venv` を作り直し、source package、example依存、文書依存を導入する
+  - [ ] downstream回帰、標準CLI、Sphinx文書、CUDA rasterizationのsmoke testを実行する
+  - [ ] 対応upstream SHA、実行環境、検証結果を完了記録へ残す
 
 - [ ] **A5. 実データGPU環境でmask学習を検証**
   - Refs: REQ-MASK-01, REQ-MASK-02, REQ-MASK-04, REQ-NFR-02, DES-REL-01
