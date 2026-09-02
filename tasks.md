@@ -18,18 +18,11 @@
 - `C`: 4
 
 ## 推奨実装順序
-- A6 -> A5 -> B2
+- A5 -> B2
 
 ## 優先度S: クリティカルなバグ修正や機能追加
 
 ## 優先度A: アーキテクチャ刷新や重要な機能改善
-
-- [ ] **A6. Downstream差分の標準診断を整備**
-  - Refs: REQ-SYNC-01, REQ-NFR-01, DES-SYNC-01
-  - [ ] 本家refとdownstream refの共通祖先、固有commit、変更pathを一度に表示するscriptを整備する
-  - [ ] 診断scriptの既定ref、出力、失敗条件を自動テストする
-  - [ ] fork保守運用に実行方法と結果の読み方を記載する
-  - [ ] repositoryの方針上commitしない `uv.lock` をGitの追跡対象外にする
 
 - [ ] **A5. 実データGPU環境でmask学習を検証**
   - Refs: REQ-MASK-01, REQ-MASK-02, REQ-MASK-04, REQ-NFR-02, DES-REL-01

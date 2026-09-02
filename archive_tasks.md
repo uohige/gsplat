@@ -41,6 +41,13 @@
   - [x] `install-manual.md` のfork URL placeholderを実際のrepositoryと `custom/main` 利用方法へ置換する
   - [x] 文書内の導入・同期commandが現在のremoteとbranch protectionに一致することを確認する
 
+- [x] **A6. Downstream差分の標準診断を整備**
+  - Refs: REQ-SYNC-01, REQ-NFR-01, DES-SYNC-01
+  - [x] 本家refとdownstream refの共通祖先、固有commit、変更pathを一度に表示するscriptを整備する
+  - [x] 診断scriptの既定ref、出力、失敗条件を自動テストする
+  - [x] fork保守運用に実行方法と結果の読み方を記載する
+  - [x] repositoryの方針上commitしない `uv.lock` をGitの追跡対象外にする
+
 ## 優先度B: 完了済みのパフォーマンス・品質・拡張性の強化
 
 - [x] **B1. Downstream必須CIを構成**

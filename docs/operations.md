@@ -49,7 +49,41 @@ git fetch --all --prune
 未commitの変更がある場合は、その変更を対応する作業branchでcommitしてから進める。
 dataset、checkpoint、PLY、render結果、ローカルCUDA設定はcommitしない。
 
-## 3. 本家mainのmirror更新
+## 3. Downstream差分の確認
+
+自作部分の境界は手書きのfile一覧ではなく、Gitの共通祖先から算出する。
+作業前に本家refを更新し、標準診断scriptを実行する。
+
+```bash
+git fetch upstream --prune
+lint/show-downstream-delta.sh
+```
+
+既定では `upstream/main` と現在の `HEAD` を比較する。branchを明示する場合は、
+本家ref、downstream refの順に指定する。
+
+```bash
+lint/show-downstream-delta.sh upstream/main custom/main
+```
+
+出力の意味は次のとおりである。
+
+- `Shared base`: 本家とdownstreamが最後に共有するcommit
+- `Downstream-only commits`: 本家refから到達できず、downstream refから到達できるcommit
+- `Changed paths since shared base`: 共通祖先からdownstream側で追加、変更、削除されたpath
+
+変更内容を詳しく確認する場合は、scriptが表示した共通祖先を基準に `git diff` を実行する。
+
+```bash
+git diff upstream/main...custom/main
+git diff upstream/main...custom/main -- examples/datasets/colmap.py
+git log --oneline upstream/main..custom/main
+```
+
+`upstream/main` をfetchせずに古いrefのまま診断すると、すでに本家へ入った変更を
+downstream固有と誤認する可能性がある。同期前後とも、診断より先にfetchする。
+
+## 4. 本家mainのmirror更新
 
 `main` は `upstream/main` をfast-forward可能な状態で維持する。
 
@@ -70,7 +104,7 @@ git remote -v
 
 原因を確認せずに `main` をresetまたはforce-pushしない。
 
-## 4. custom/mainへの本家更新取り込み
+## 5. custom/mainへの本家更新取り込み
 
 公開済みの `custom/main` はrebaseしない。本家更新は専用branchでmergeし、
 upstreamとの祖先関係を保持したPull Requestとして統合する。
@@ -102,7 +136,7 @@ base repositoryに `nerfstudio-project/gsplat` を選ばない。同期Pull Requ
 通常変更のsquash mergeではなくmerge commitで統合し、upstreamとの祖先関係を
 保持する。
 
-## 5. 通常の機能・文書変更
+## 6. 通常の機能・文書変更
 
 通常変更は最新の `custom/main` からタスク単位のbranchを作る。
 
@@ -120,7 +154,7 @@ branch名は変更種別に応じて `feature/`、`fix/`、`docs/`、`chore/` �
 `custom/main` への直接push、force-push、branch削除は行わない。branch protectionの
 必須checkである `Mask and loss tests` と `Documentation` が成功してから統合する。
 
-## 6. 検証済みreleaseの固定
+## 7. 検証済みreleaseの固定
 
 実データと対応GPU環境で検証済みの `custom/main` commitだけをrelease対象とする。
 tagは `mask-vMAJOR.MINOR.PATCH` 形式のannotated tagとし、公開済みtagを書き換えない。
@@ -191,7 +225,7 @@ versionは変更内容から次のように決定する。
 
 同一commitと同一検証内容を同じ環境で再確認しただけの場合は新versionを発行しない。
 
-## 7. 障害時の確認
+## 8. 障害時の確認
 
 まず現在地と履歴を採取する。
 
