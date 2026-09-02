@@ -63,3 +63,10 @@
   - [x] 初期SfM点の除外、同一valid領域のPSNR、事前選定viewのghost低減と静的背景の健全性を合格条件として定義する
   - [x] `mask-vMAJOR.MINOR.PATCH` のversion更新基準を定義する
   - [x] 小規模な自前COLMAP captureの準備を含むA5の受け入れ条件を確定する
+
+- [x] **C3. Downstream差分の識別境界と表示方法を合意**
+  - Refs: REQ-SYNC-01, REQ-NFR-01, DES-SYNC-01
+  - [x] 自作部分の正本を物理directoryではなく、本家との共通祖先から算出するGit差分と定義する
+  - [x] downstream固有codeを `examples/`、`tests/`、`docs/`、`lint/`、downstream CIへ閉じ、`gsplat/` coreへの変更を最小化する
+  - [x] 手書きの固定file一覧を増やさず、一つの標準診断で固有commitと変更pathを表示する
+  - [x] 公式fileに残る統合点は現在必要な接続に限定し、大規模なdirectory再編や別package化を行わない

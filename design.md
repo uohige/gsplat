@@ -133,17 +133,22 @@
 - **Refs**: REQ-SYNC-01, REQ-NFR-01
 - **責務**:
   - Git remoteとbranchが、本家の正本、本家mirror、downstream利用版、機能開発、本家同期候補を分離する。
+  - `lint/show-downstream-delta.sh` が、指定した本家refとdownstream refの共通祖先を基準に、downstream固有commitと変更pathを表示する。
 - **入力**:
   - `upstream/main` の新しいcommit、`custom/main` のdownstream commit、作業branch上の変更。
+  - 比較対象とする本家refとdownstream ref。省略時は `upstream/main` と `HEAD` を使用する。
 - **出力**:
   - `origin/main` のfast-forward mirror、保護された `origin/custom/main`、単一目的のPull Request。
+  - 本家ref、downstream ref、共通祖先、downstream固有commit数、変更path数、commit一覧、変更path一覧を含む診断結果。
 - **失敗時**:
   - `main` がfast-forwardできない場合は自前commit混入として同期を停止する。
   - 必須CIが失敗するPull Requestは `custom/main` へ統合しない。
+  - 指定refが存在しない場合、または共通祖先を解決できない場合は診断を失敗させる。
 - **不変条件**:
   - `main` にdownstream固有commitを置かない。
   - 公開済み `custom/main` をrebaseまたはforce-pushしない。
   - 通常変更はsquash、本家同期はupstreamとの祖先関係を保持するmerge commitで統合する。
+  - downstream差分は手書きの固定一覧ではなく、Gitの到達可能性と共通祖先から算出する。
 
 ### DES-CI-01: Downstream必須check
 - **Refs**: REQ-SYNC-01, REQ-NFR-02
