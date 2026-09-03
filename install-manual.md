@@ -177,6 +177,14 @@ python -c "import torch; print(torch.__version__); print(torch.version.cuda)"
 uv run python -c "import torch; print(torch.__version__); print(torch.version.cuda)"
 ```
 
+freshなuv環境には `setuptools` が含まれないため、続く
+`--no-build-isolation` のsource buildより前に、`pyproject.toml` が定義する
+build-system依存も同じ `.venv` へ導入します。
+
+```bash
+uv pip install setuptools wheel ninja numpy rich
+```
+
 ## 10. 利用版を固定したい場合
 
 常に最新の `custom/main` を追う場合でも、動作確認に使ったSHAは記録してください。
@@ -288,6 +296,7 @@ source ./env.cuda.sh
 git switch custom/main
 git pull --ff-only origin custom/main
 git submodule update --init --recursive
+uv pip install setuptools wheel ninja numpy rich
 uv pip install --no-build-isolation -e .
 uv pip install -r examples/requirements.txt --no-build-isolation
 ```

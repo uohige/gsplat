@@ -48,6 +48,17 @@
   - [x] fork保守運用に実行方法と結果の読み方を記載する
   - [x] repositoryの方針上commitしない `uv.lock` をGitの追跡対象外にする
 
+- [x] **A7. 本家v1.6.0をdownstream利用版へ同期**
+  - Refs: REQ-SYNC-01, REQ-NFR-01, REQ-NFR-02, DES-SYNC-01, DES-CI-01
+  - 対応upstream: `90d7b4b349e379ccf9ee6a8cef76aa40f48bb32e` (`gsplat 1.6.0`)
+  - 検証環境: Ubuntu 24.04.4 LTS、desktop RTX 4070 12,282 MiB、driver 595.84、CUDA toolkit 12.8.93、Python 3.11.14、uv 0.10.3、PyTorch 2.9.1+cu128、torchvision 0.24.1+cu128、pycolmap 4.2.0
+  - [x] `main` を最新の `upstream/main` へfast-forwardし、本家mirrorを更新する
+  - [x] 本家履歴を保持するmerge commitで同期branchへ取り込み、手動競合なしで統合する
+  - [x] `.venv` を作り直し、source package、example依存、文書依存、検証依存を導入する
+  - [x] freshなuv環境に必要なbuild-system依存の先行導入を利用手順へ明記する
+  - [x] downstream回帰236件、標準CLI help、Sphinx 18ページのwarning-error buildを成功させる
+  - [x] CUDA rasterization、split spherical harmonics、FTheta 180度境界の代表GPU testを各1件成功させる
+
 ## 優先度B: 完了済みのパフォーマンス・品質・拡張性の強化
 
 - [x] **B1. Downstream必須CIを構成**

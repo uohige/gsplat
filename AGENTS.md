@@ -80,6 +80,7 @@
 ## ビルド、テスト、開発用コマンド
 - `uv venv --python 3.11 .venv` — リポジトリ専用の仮想環境を作成する。
 - `uv pip install torch==2.9.1 torchvision==0.24.1 --index-url https://download.pytorch.org/whl/cu128` — 現在のexamplesと整合するPyTorchを先に導入する。利用環境のCUDA系列が異なる場合は `install-manual.md` と実環境の整合を確認する。
+- `uv pip install setuptools wheel ninja numpy rich` — freshなuv環境で `--no-build-isolation` を使う前に、`pyproject.toml` のbuild-system依存を同じ `.venv` へ導入する。
 - `uv pip install --no-build-isolation -e .` と `uv pip install -r examples/requirements.txt --no-build-isolation` — 本体とexample依存を同じ `.venv` に導入する。
 - `.venv/bin/python -m pytest -q tests/test_colmap_masks.py tests/test_losses.py` — downstreamマスク機能と関連するupstream lossを検証する。
 - `.venv/bin/python -m pytest tests/` — 実行環境で利用可能なテストスイートを実行する。CUDA必須テストは対応GPU環境で確認する。
